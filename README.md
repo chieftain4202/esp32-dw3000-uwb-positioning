@@ -2,6 +2,13 @@
 
 ESP32-DW3000 보드 5대로 구성한 실내 2차원 UWB 위치 측위 프로젝트입니다. 1대의 Tag가 4대의 Anchor와 SS-TWR 통신을 수행하고, 측정 거리의 이상값 제거와 Robust WLS 연산을 거쳐 최종 `(x, y)` 좌표를 출력합니다. 출력 좌표는 Web Serial 기반 시각화 화면에서 실시간 궤적으로 확인할 수 있습니다.
 
+##추가내용
+dw3000이미지<img width="447" height="447" alt="image" src="https://github.com/user-attachments/assets/ebfb1df1-e6cc-487f-9297-0be2974176e3" />
+플렛폼io로고 <img width="738" height="414" alt="image" src="https://github.com/user-attachments/assets/df1fb807-44d4-4362-bfb1-a6ed1568186f" />
+C++로고 <img width="306" height="344" alt="image" src="https://github.com/user-attachments/assets/cd2536e1-a553-436d-8a82-27c43ac2b8e6" />
+
+
+
 ## 바로가기
 
 | 구분 | 경로 | 주요 기능 |
