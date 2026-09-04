@@ -1,25 +1,209 @@
-# ESP32 DW3000 UWB Positioning
+# ESP32-DW3000 4-Anchor UWB Positioning
 
-ESP32-DW3000 보드로 구성한 4-Anchor UWB 위치 측위 프로젝트입니다.  
-Tag와 4개의 Anchor가 SS-TWR 방식으로 거리를 측정하고, 거리 보정과 WLS 연산을 통해 2차원 좌표를 계산합니다.
+ESP32-DW3000 보드 5대로 구성한 실내 2차원 UWB 위치 측위 프로젝트입니다. 1대의 Tag가 4대의 Anchor와 SS-TWR 통신을 수행하고, 측정 거리의 이상값 제거와 Robust WLS 연산을 거쳐 최종 `(x, y)` 좌표를 출력합니다. 출력 좌표는 Web Serial 기반 시각화 화면에서 실시간 궤적으로 확인할 수 있습니다.
 
-## Source Code
+## 바로가기
 
-| 구분 | 코드 이동 | 설명 |
+| 구분 | 경로 | 주요 기능 |
 |---|---|---|
-| Tag Firmware | [Tag main.cpp](./Projects/dw3000_Tag/src/main.cpp) | Poll Frame을 송신하고 4개 Anchor의 응답을 수집합니다. Timestamp로 Anchor별 거리를 계산한 뒤 WLS를 적용하여 최종 `(x, y)` 좌표를 출력합니다. |
-| Anchor Firmware | [Anchor main.cpp](./Projects/dw3000_Anchor/src/main.cpp) | Tag의 Poll Frame을 수신하고 Anchor ID별 응답 Slot에 맞춰 Timestamp가 포함된 Response Frame을 반환합니다. |
+| Tag Firmware | [main.cpp](./Projects/dw3000_Tag/src/main.cpp) | Poll 송신, 4개 응답 수집, 거리·좌표 계산, Serial 출력 |
+| Anchor Firmware | [main.cpp](./Projects/dw3000_Anchor/src/main.cpp) | Poll 검증, ID별 Delayed Response, Timestamp 반환 |
+| Position Visualizer | [index.html](./Projects/dw3000_Tag/visualizer/index.html) | Web Serial 수신, 현재 좌표와 최근 이동 궤적 표시 |
+| Tag PlatformIO 설정 | [platformio.ini](./Projects/dw3000_Tag/platformio.ini) | ESP32 Arduino 빌드·업로드 및 115200bps Monitor 설정 |
+| Anchor PlatformIO 설정 | [platformio.ini](./Projects/dw3000_Anchor/platformio.ini) | Anchor Firmware 빌드·업로드 환경 |
 
-## Project Directory
+## 사용 장비 및 개발 환경
+
+| 분류 | 구성 |
+|---|---|
+| UWB 보드 | Makerfabs ESP32 UWB DW3000 × 5 |
+| 노드 구성 | Tag × 1, Anchor × 4 |
+| 측위 영역 | 2m × 2m, A1(0,0), A2(2,0), A3(2,2), A4(0,2) |
+| Firmware | C++, Arduino Framework, DW3000 Driver |
+| Visualizer | HTML, CSS, JavaScript, Canvas, Web Serial API |
+| 개발 도구 | VS Code, PlatformIO, Git, GitHub |
+| 통신 환경 | ESP32↔DW3000 SPI, PC↔Tag USB Serial 115200bps |
+
+## 전체 시스템 구성
+
+![4-Anchor UWB positioning architecture](./docs/images/system-architecture.png)
+
+Tag가 한 번의 Poll을 송신하면 4개의 Anchor가 ID별 응답 Slot을 사용해 순서대로 Response를 반환합니다. Tag는 한 Round에서 네 응답이 모두 검증된 경우에만 거리와 좌표를 계산합니다.
+
+1. Tag가 Sequence 번호를 포함한 12Byte Poll Frame 송신
+2. Anchor가 Frame 길이와 Header를 검증하고 Poll 수신 Timestamp 저장
+3. A1부터 A4까지 ID별 Delayed TX Slot에서 Response 송신
+4. Tag가 21Byte Response의 ID, Sequence, Timestamp 검증
+5. Anchor별 거리 계산 및 7-Sample 평균 필터 적용
+6. Linear Least Squares와 Robust WLS로 좌표 계산
+7. 최근 좌표 5개의 평균을 `x.xxx,y.yyy` 형식으로 출력
+
+## SS-TWR 통신 타이밍과 Frame
+
+![SS-TWR timing and frame](./docs/images/ss-twr-timing-frame.png)
+
+동시 응답 충돌을 피하기 위해 Anchor 응답 시점을 `1.0ms + (Anchor ID - 1) × 1.2ms`로 분리했습니다. Response에는 Poll Sequence, Anchor ID, Poll 수신 Timestamp와 Response 송신 Timestamp가 포함됩니다.
+
+| Frame | 길이 | 주요 필드 |
+|---|---:|---|
+| Poll | 12Byte | Common Header, Sequence, FCS |
+| Response | 21Byte | Header, Anchor ID, Poll RX TS, Response TX TS, FCS |
+
+## 거리 계산
+
+Tag에서 측정한 Round Trip Time과 Anchor가 전달한 Reply Time으로 전파 시간 `ToF`를 계산합니다. 두 장치의 Clock 차이는 DW3000 Clock Offset 값으로 보정합니다.
+
+$$
+T_{round}=t_{response\_rx}-t_{poll\_tx}
+$$
+
+$$
+T_{reply}=t_{response\_tx}-t_{poll\_rx}
+$$
+
+$$
+ToF=\frac{T_{round}-T_{reply}(1-ClockOffset)}{2}\times DWT\_TIME\_UNITS
+$$
+
+$$
+d_i=ToF\times c-b_i
+$$
+
+`c`는 빛의 속도, `b_i`는 Anchor별 거리 보정값입니다. 계산 결과가 유한하지 않거나 0~10m 범위를 벗어나면 해당 응답을 제외합니다.
+
+## 2차원 좌표 계산
+
+![Range filtering and position calculation](./docs/images/position-calculation-pipeline.png)
+
+각 Anchor 위치 `(x_i,y_i)`와 측정 거리 `d_i`는 다음 원 방정식을 만족합니다.
+
+$$
+(x-x_i)^2+(y-y_i)^2=d_i^2
+$$
+
+A1을 기준으로 나머지 식을 빼서 선형화하고 Least Squares로 초기 좌표를 계산합니다.
+
+$$
+2(x_i-x_1)x+2(y_i-y_1)y=d_1^2-d_i^2+x_i^2-x_1^2+y_i^2-y_1^2
+$$
+
+이후 최근 거리값의 분산으로 Anchor별 가중치를 계산하고 Robust WLS를 최대 6회 반복합니다.
+
+$$
+w_i=\frac{1}{\sigma_i^2+0.0025}
+$$
+
+잔차가 0.5m보다 크면 Huber Weight를 적용해 순간적으로 튀는 거리값의 영향을 줄입니다. 최종 좌표는 실제 측위 영역인 0~2m로 제한하고 최근 좌표 5개의 평균을 출력합니다.
+
+| 처리 항목 | 설정값 |
+|---|---:|
+| 유효 거리 | 0~10m |
+| 거리 평균 | Anchor별 최근 7개 |
+| Stale Reset | 500ms |
+| WLS 반복 | 최대 6회 |
+| Huber 기준 | 0.5m |
+| 좌표 평균 | 최근 5개 |
+
+## 통신 결과와 진단 로그
+
+![Anchor response result](./docs/images/anchor-response-result.png)
+
+Anchor는 수신한 Poll 수와 정상 Response 수, Delayed TX 실패 횟수 및 잘못된 Frame 수를 주기적으로 출력합니다. Tag는 한 Round에서 일부 응답이 누락되면 좌표를 계산하지 않고 Anchor 수신 상태와 오류 원인을 진단 로그로 남깁니다.
 
 ```text
-Projects/
-├── dw3000_Tag/
-│   ├── src/main.cpp
-│   ├── platformio.ini
-│   ├── lib/
-│   └── visualizer/
-└── dw3000_Anchor/
-    ├── src/main.cpp
-    ├── platformio.ini
-    └── lib/
+WARN,INCOMPLETE_ROUND,MASK=0xE,RX=...,LEN=...,HDR=...,ID=...,
+SEQ=...,TIME=...,DIST=...,RXERR=...,TXFAIL=...
+```
+
+![Incomplete ranging round diagnostics](./docs/images/incomplete-round-diagnostics.png)
+
+`MASK`의 각 Bit는 A1~A4의 수신 여부를 나타냅니다. Length, Header, ID, Sequence, Timestamp, Distance, RX Error를 별도 Counter로 분리하여 응답 누락 원인을 확인할 수 있도록 구성했습니다.
+
+## 실시간 좌표 시각화
+
+Tag는 계산이 완료된 좌표를 다음 형식으로 출력합니다.
+
+```text
+0.142,1.327
+0.134,1.299
+0.106,1.280
+```
+
+Visualizer는 Web Serial API로 115200bps 좌표 로그를 수신하고, 문자열에서 `(x,y)`를 추출해 2m × 2m Canvas에 표시합니다. 현재 위치는 점으로, 최근 100개 좌표는 이동 궤적으로 출력하며 표본 수, 경고 수, Anchor Mask와 마지막 갱신 시간도 함께 표시합니다.
+
+### Serial 좌표 출력
+
+<p align="center">
+  <img src="./docs/images/serial-coordinate-log.gif" width="360" alt="Serial coordinate output">
+</p>
+
+### 정지 및 이동 측위 결과
+
+<table>
+  <tr>
+    <th width="50%">정지 상태 좌표 안정화</th>
+    <th width="50%">이동 경로 실시간 추적</th>
+  </tr>
+  <tr>
+    <td><img src="./docs/images/stationary-position.gif" width="100%" alt="Stationary tag position"></td>
+    <td><img src="./docs/images/moving-position.gif" width="100%" alt="Moving tag trajectory"></td>
+  </tr>
+</table>
+
+정지 시험에서는 좌표가 일정 영역에 유지되는 것을 확인했고, 이동 시험에서는 Tag 이동에 따라 현재 위치와 이동 궤적이 연속적으로 갱신되는 것을 확인했습니다. 별도의 기준 측정 장비를 사용한 절대 위치 정확도 평가는 포함하지 않았습니다.
+
+## Build and Upload
+
+### Tag
+
+```bash
+cd Projects/dw3000_Tag
+pio run
+pio run --target upload
+pio device monitor --baud 115200
+```
+
+### Anchor
+
+각 보드에 업로드하기 전 [Anchor main.cpp](./Projects/dw3000_Anchor/src/main.cpp)의 `ANCHOR_ID`를 1~4로 변경합니다.
+
+```cpp
+#define ANCHOR_ID 1
+```
+
+```bash
+cd Projects/dw3000_Anchor
+pio run
+pio run --target upload
+```
+
+### Visualizer
+
+Chrome 또는 Edge에서 Web Serial을 사용합니다. 저장소 루트에서 로컬 서버를 실행한 뒤 `http://127.0.0.1:8765`에 접속합니다.
+
+```bash
+python -m http.server 8765 --directory Projects/dw3000_Tag/visualizer
+```
+
+Tag의 Serial Monitor를 종료한 뒤 **Connect**를 눌러 Tag의 USB Serial Port를 선택합니다. 하나의 Serial Port를 PlatformIO Monitor와 브라우저가 동시에 열 수는 없습니다.
+
+## Repository Structure
+
+```text
+.
+├── Projects/
+│   ├── dw3000_Tag/
+│   │   ├── src/main.cpp
+│   │   ├── lib/Dw3000/
+│   │   ├── visualizer/
+│   │   └── platformio.ini
+│   └── dw3000_Anchor/
+│       ├── src/main.cpp
+│       ├── lib/Dw3000/
+│       └── platformio.ini
+└── docs/
+    ├── images/
+    └── diagrams/
+```
+
+Draw.io 편집 원본은 [`docs/diagrams`](./docs/diagrams)에서 확인할 수 있습니다. 프로젝트에 포함된 DW3000 Driver의 라이선스와 저작권 표시는 원본 내용을 따릅니다.
