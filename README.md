@@ -1,4 +1,4 @@
-<img width="420" height="746" alt="serial-coordinate-log" src="https://github.com/user-attachments/assets/c78dead3-84ad-4296-a1b7-bb51849f3f21" /># ESP32-DW3000 4-Anchor UWB Positioning
+# ESP32-DW3000 4-Anchor UWB Positioning
 
 ESP32-DW3000 보드 5대로 구성한 실내 2차원 UWB 위치 측위 프로젝트입니다. 1대의 Tag가 4대의 Anchor와 SS-TWR 통신을 수행하고, 측정 거리의 이상값 제거와 Robust WLS 연산을 거쳐 최종 `(x, y)` 좌표를 출력합니다. 출력 좌표는 Web Serial 기반 시각화 화면에서 실시간 궤적으로 확인할 수 있습니다.
 
@@ -26,9 +26,12 @@ ESP32-DW3000 보드 5대로 구성한 실내 2차원 UWB 위치 측위 프로젝
 
 ## 전체 시스템 구성
 
-<img width="1600" height="1200" alt="system-architecture" src="https://github.com/user-attachments/assets/b8b984d4-11d2-4213-adff-4322fedc5d1e" />
-
 Tag가 한 번의 Poll을 송신하면 4개의 Anchor가 ID별 응답 Slot을 사용해 순서대로 Response를 반환합니다. Tag는 한 Round에서 네 응답이 모두 검증된 경우에만 거리와 좌표를 계산합니다.
+
+<p align="center">
+  <img width="900" alt="4-Anchor UWB 시스템 구성도" src="https://github.com/user-attachments/assets/b8b984d4-11d2-4213-adff-4322fedc5d1e">
+</p>
+<p align="center"><sub>Tag 1대와 Anchor 4대로 구성한 2차원 UWB 측위 시스템</sub></p>
 
 1. Tag가 Sequence 번호를 포함한 12Byte Poll Frame 송신
 2. Anchor가 Frame 길이와 Header를 검증하고 Poll 수신 Timestamp 저장
@@ -40,9 +43,19 @@ Tag가 한 번의 Poll을 송신하면 4개의 Anchor가 ID별 응답 Slot을 �
 
 ## SS-TWR 통신 타이밍과 Frame
 
-<img width="1600" height="1200" alt="ss-twr-timing-frame" src="https://github.com/user-attachments/assets/ea0f085a-d1cd-426b-b922-e71987d9bf4a" />
-
 동시 응답 충돌을 피하기 위해 Anchor 응답 시점을 `1.0ms + (Anchor ID - 1) × 1.2ms`로 분리했습니다. Response에는 Poll Sequence, Anchor ID, Poll 수신 Timestamp와 Response 송신 Timestamp가 포함됩니다.
+
+<p align="center">
+  <img width="900" alt="SS-TWR 통신 타이밍과 Anchor 응답 Slot" src="https://github.com/user-attachments/assets/8d383a73-f5ad-48c5-a44f-79d0621d0819">
+</p>
+<p align="center"><sub>Poll 송신 후 Anchor ID별로 분리한 Response Slot</sub></p>
+
+### Response Frame 구성
+
+<p align="center">
+  <img alt="DW3000 Response Frame WaveDrom" src="https://github.com/user-attachments/assets/07f5a9b3-530b-4c9d-90a1-ac1a37265fc5">
+</p>
+<p align="center"><sub>WaveDrom으로 작성한 21Byte Response Frame</sub></p>
 
 | Frame | 길이 | 주요 필드 |
 |---|---:|---|
@@ -73,8 +86,10 @@ $$
 
 ## 2차원 좌표 계산
 
-<img width="1565" height="879" alt="image" src="https://github.com/user-attachments/assets/036a3294-5e62-422f-8e18-5a15ce10a290" />
-
+<p align="center">
+  <img width="900" alt="거리 필터링 및 WLS 좌표 계산 흐름" src="https://github.com/user-attachments/assets/036a3294-5e62-422f-8e18-5a15ce10a290">
+</p>
+<p align="center"><sub>Frame 검증부터 거리 안정화, WLS 보정 및 좌표 출력까지의 처리 흐름</sub></p>
 
 각 Anchor 위치 `(x_i,y_i)`와 측정 거리 `d_i`는 다음 원 방정식을 만족합니다.
 
@@ -107,22 +122,28 @@ $$
 
 ## 통신 결과와 진단 로그
 
-<img width="680" height="346" alt="Anchor Log" src="https://github.com/user-attachments/assets/15c203ba-d2c6-41d7-b058-eebdf9446668" />
-
-
 Anchor는 수신한 Poll 수와 정상 Response 수, Delayed TX 실패 횟수 및 잘못된 Frame 수를 주기적으로 출력합니다. Tag는 한 Round에서 일부 응답이 누락되면 좌표를 계산하지 않고 Anchor 수신 상태와 오류 원인을 진단 로그로 남깁니다.
+
+<p align="center">
+  <img width="680" alt="Anchor Poll 및 Response 통신 로그" src="https://github.com/user-attachments/assets/15c203ba-d2c6-41d7-b058-eebdf9446668">
+</p>
+<p align="center"><sub>Anchor의 Poll 수신, Response 송신 및 Delayed TX 상태 확인</sub></p>
 
 ```text
 WARN,INCOMPLETE_ROUND,MASK=0xE,RX=...,LEN=...,HDR=...,ID=...,
 SEQ=...,TIME=...,DIST=...,RXERR=...,TXFAIL=...
 ```
 
-<img width="932" height="605" alt="image" src="https://github.com/user-attachments/assets/34e8dc5e-a6b1-42ba-98e7-4db33a8a3d2b" />
-
+<p align="center">
+  <img width="820" alt="불완전 Ranging Round 진단 로그" src="https://github.com/user-attachments/assets/34e8dc5e-a6b1-42ba-98e7-4db33a8a3d2b">
+</p>
+<p align="center"><sub>Anchor 응답 누락과 Frame 오류 원인을 항목별 Counter로 분리</sub></p>
 
 `MASK`의 각 Bit는 A1~A4의 수신 여부를 나타냅니다. Length, Header, ID, Sequence, Timestamp, Distance, RX Error를 별도 Counter로 분리하여 응답 누락 원인을 확인할 수 있도록 구성했습니다.
 
 ## 실시간 좌표 시각화
+
+Visualizer는 Web Serial API로 115200bps 좌표 로그를 수신하고, 문자열에서 `(x,y)`를 추출해 2m × 2m Canvas에 표시합니다. 현재 위치는 점으로, 최근 100개 좌표는 이동 궤적으로 출력하며 표본 수, 경고 수, Anchor Mask와 마지막 갱신 시간도 함께 표시합니다.
 
 Tag는 계산이 완료된 좌표를 다음 형식으로 출력합니다.
 
@@ -132,12 +153,12 @@ Tag는 계산이 완료된 좌표를 다음 형식으로 출력합니다.
 0.106,1.280
 ```
 
-Visualizer는 Web Serial API로 115200bps 좌표 로그를 수신하고, 문자열에서 `(x,y)`를 추출해 2m × 2m Canvas에 표시합니다. 현재 위치는 점으로, 최근 100개 좌표는 이동 궤적으로 출력하며 표본 수, 경고 수, Anchor Mask와 마지막 갱신 시간도 함께 표시합니다.
-
 ### Serial 좌표 출력
 
-<img width="420" height="746" alt="serial-coordinate-log" src="https://github.com/user-attachments/assets/79ecfcfe-ef14-4c3d-b60e-c65bfaebf104" />
-
+<p align="center">
+  <img width="420" height="746" alt="Serial 좌표 출력 로그" src="https://github.com/user-attachments/assets/79ecfcfe-ef14-4c3d-b60e-c65bfaebf104">
+</p>
+<p align="center"><sub>Tag에서 출력한 실시간 x, y 좌표 데이터</sub></p>
 
 ### 정지 및 이동 측위 결과
 
@@ -147,10 +168,8 @@ Visualizer는 Web Serial API로 115200bps 좌표 로그를 수신하고, 문자�
     <th width="50%">이동 경로 실시간 추적</th>
   </tr>
   <tr>
-    <td><img width="560" height="564" alt="stationary-position" src="https://github.com/user-attachments/assets/deae322b-254b-4144-93f6-9870ccc23031" />
-</td>
-    <td><img width="560" height="526" alt="moving-position" src="https://github.com/user-attachments/assets/32f6c16f-3e0d-4fef-b880-551e786b2c72" />
-</td>
+    <td><img width="560" height="564" alt="정지 상태 좌표 안정화" src="https://github.com/user-attachments/assets/deae322b-254b-4144-93f6-9870ccc23031"></td>
+    <td><img width="560" height="526" alt="이동 경로 실시간 추적" src="https://github.com/user-attachments/assets/32f6c16f-3e0d-4fef-b880-551e786b2c72"></td>
   </tr>
 </table>
 
