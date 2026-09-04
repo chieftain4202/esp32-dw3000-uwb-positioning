@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UWB Position</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, "Malgun Gothic", sans-serif;
+      color: #17202a;
+      background: #eef1f4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      min-height: 64px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: #ffffff;
+      border-bottom: 1px solid #cbd2d9;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    button {
+      min-width: 92px;
+      height: 38px;
+      border: 1px solid #1c6e4a;
+      border-radius: 5px;
+      padding: 0 16px;
+      color: #ffffff;
+      background: #1c6e4a;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.disconnect {
+      border-color: #9d2b2b;
+      background: #9d2b2b;
+    }
+
+    main {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) 260px;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .plot {
+      min-height: 420px;
+      background: #ffffff;
+      border: 1px solid #cbd2d9;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    aside {
+      padding: 18px;
+      background: #ffffff;
+      border: 1px solid #cbd2d9;
+      border-radius: 6px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #dfe4e8;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #7b8794;
+    }
+
+    .dot.live { background: #168451; }
+    .dot.stale { background: #c68013; }
+    .dot.error { background: #b83232; }
+
+    dl {
+      margin: 18px 0 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px 10px;
+      font-size: 14px;
+    }
+
+    dt { color: #59636e; }
+    dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+
+    .coordinate {
+      grid-column: 1 / -1;
+      margin-top: 8px;
+      padding-top: 18px;
+      border-top: 1px solid #dfe4e8;
+    }
+
+    .coordinate strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; }
+      aside { order: -1; }
+      .plot { min-height: 390px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>UWB Position</h1>
+    <button id="connectButton" type="button">Connect</button>
+  </header>
+
+  <main>
+    <section class="plot" aria-label="UWB position plot">
+      <canvas id="plot"></canvas>
+    </section>
+
+    <aside>
+      <div class="status">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
+      <dl>
+        <dt>Samples</dt><dd id="sampleCount">0</dd>
+        <dt>Warnings</dt><dd id="warningCount">0</dd>
+        <dt>Anchor mask</dt><dd id="anchorMask">-</dd>
+        <dt>Last update</dt><dd id="lastUpdate">-</dd>
+        <div class="coordinate">
+          <span>Position (m)</span>
+          <strong id="coordinate">-, -</strong>
+        </div>
+      </dl>
+    </aside>
+  </main>
+
+  <script>
+    const anchors = [
+      { id: 1, x: 0, y: 0, color: "#c03a2b" },
+      { id: 2, x: 2, y: 0, color: "#2874a6" },
+      { id: 3, x: 2, y: 2, color: "#7d3c98" },
+      { id: 4, x: 0, y: 2, color: "#b9770e" }
+    ];
+
+    const canvas = document.getElementById("plot");
+    const ctx = canvas.getContext("2d");
+    const connectButton = document.getElementById("connectButton");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const sampleCountElement = document.getElementById("sampleCount");
+    const warningCountElement = document.getElementById("warningCount");
+    const anchorMaskElement = document.getElementById("anchorMask");
+    const lastUpdateElement = document.getElementById("lastUpdate");
+    const coordinateElement = document.getElementById("coordinate");
+
+    let port = null;
+    let reader = null;
+    let connected = false;
+    let inputBuffer = "";
+    let currentPoint = null;
+    let trail = [];
+    let sampleCount = 0;
+    let warningCount = 0;
+    let lastCoordinateAt = 0;
+
+    function setStatus(text, state = "") {
+      statusText.textContent = text;
+      statusDot.className = `dot ${state}`.trim();
+    }
+
+    function mapPoint(x, y, bounds) {
+      return {
+        x: bounds.left + (x / 2) * bounds.size,
+        y: bounds.top + bounds.size - (y / 2) * bounds.size
+      };
+    }
+
+    function draw() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const width = rect.width;
+      const height = rect.height;
+      const size = Math.max(120, Math.min(width - 92, height - 92));
+      const bounds = {
+        left: (width - size) / 2,
+        top: (height - size) / 2,
+        size
+      };
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "#d9dee3";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const p = bounds.left + (bounds.size * i) / 4;
+        const q = bounds.top + (bounds.size * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(p, bounds.top);
+        ctx.lineTo(p, bounds.top + bounds.size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bounds.left, q);
+        ctx.lineTo(bounds.left + bounds.size, q);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#3c4650";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bounds.left, bounds.top, bounds.size, bounds.size);
+
+      ctx.fillStyle = "#59636e";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      for (let i = 0; i <= 2; i++) {
+        const x = bounds.left + (i / 2) * bounds.size;
+        ctx.fillText(`${i} m`, x, bounds.top + bounds.size + 25);
+      }
+      ctx.textAlign = "right";
+      for (let i = 0; i <= 2; i++) {
+        const y = bounds.top + bounds.size - (i / 2) * bounds.size;
+        ctx.fillText(`${i} m`, bounds.left - 12, y + 4);
+      }
+
+      if (trail.length > 1) {
+        ctx.strokeStyle = "rgba(22, 132, 81, 0.45)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        trail.forEach((point, index) => {
+          const p = mapPoint(point.x, point.y, bounds);
+          if (index === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      }
+
+      anchors.forEach(anchor => {
+        const p = mapPoint(anchor.x, anchor.y, bounds);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+        ctx.fillStyle = anchor.color;
+        ctx.fill();
+        ctx.fillStyle = "#17202a";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = anchor.x === 0 ? "left" : "right";
+        ctx.fillText(`A${anchor.id}`, p.x + (anchor.x === 0 ? 13 : -13), p.y - 12);
+      });
+
+      if (currentPoint) {
+        const p = mapPoint(currentPoint.x, currentPoint.y, bounds);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = "#168451";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+
+    function handleLine(line) {
+      const coordinateMatch = line.match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/);
+      if (coordinateMatch) {
+        const x = Number(coordinateMatch[1]);
+        const y = Number(coordinateMatch[2]);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          currentPoint = { x, y };
+          trail.push(currentPoint);
+          if (trail.length > 100) trail.shift();
+          sampleCount += 1;
+          lastCoordinateAt = Date.now();
+          sampleCountElement.textContent = String(sampleCount);
+          coordinateElement.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
+          lastUpdateElement.textContent = new Date().toLocaleTimeString("ko-KR");
+          setStatus("Receiving", "live");
+          draw();
+        }
+        return;
+      }
+
+      if (line.startsWith("WARN,")) {
+        warningCount += 1;
+        warningCountElement.textContent = String(warningCount);
+        const maskMatch = line.match(/MASK=(0x[0-9A-Fa-f]+)/);
+        if (maskMatch) anchorMaskElement.textContent = maskMatch[1].toUpperCase();
+      } else if (line.startsWith("ERROR,")) {
+        setStatus("Device error", "error");
+      }
+    }
+
+    async function readSerial() {
+      const decoder = new TextDecoder();
+      reader = port.readable.getReader();
+      try {
+        while (connected) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          inputBuffer += decoder.decode(value, { stream: true });
+          const lines = inputBuffer.split(/\r?\n/);
+          inputBuffer = lines.pop() || "";
+          lines.map(line => line.trim()).filter(Boolean).forEach(handleLine);
+        }
+      } catch (error) {
+        if (connected) setStatus("Connection error", "error");
+      } finally {
+        reader.releaseLock();
+        reader = null;
+      }
+    }
+
+    async function connect() {
+      if (!("serial" in navigator)) {
+        setStatus("Web Serial unsupported", "error");
+        return;
+      }
+
+      try {
+        port = await navigator.serial.requestPort({
+          filters: [{ usbVendorId: 0x10c4, usbProductId: 0xea60 }]
+        });
+        await port.open({ baudRate: 115200 });
+        connected = true;
+        connectButton.textContent = "Disconnect";
+        connectButton.classList.add("disconnect");
+        setStatus("Waiting for position", "stale");
+        readSerial();
+      } catch (error) {
+        setStatus("Connection failed", "error");
+      }
+    }
+
+    async function disconnect() {
+      connected = false;
+      if (reader) await reader.cancel();
+      if (port) await port.close();
+      port = null;
+      connectButton.textContent = "Connect";
+      connectButton.classList.remove("disconnect");
+      setStatus("Disconnected");
+    }
+
+    connectButton.addEventListener("click", () => {
+      if (connected) disconnect();
+      else connect();
+    });
+
+    window.addEventListener("resize", draw);
+    setInterval(() => {
+      if (connected && lastCoordinateAt && Date.now() - lastCoordinateAt > 1000) {
+        setStatus("Waiting for position", "stale");
+      }
+    }, 250);
+    draw();
+  </script>
+</body>
+</html>
