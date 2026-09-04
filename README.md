@@ -73,7 +73,7 @@ $$
 
 ## 2차원 좌표 계산
 
-<img width="1600" height="1200" alt="position-calculation-pipeline" src="https://github.com/user-attachments/assets/3997faef-f563-4b72-a832-9098681fb29d" />
+<img width="1565" height="879" alt="image" src="https://github.com/user-attachments/assets/036a3294-5e62-422f-8e18-5a15ce10a290" />
 
 
 각 Anchor 위치 `(x_i,y_i)`와 측정 거리 `d_i`는 다음 원 방정식을 만족합니다.
