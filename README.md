@@ -185,16 +185,17 @@ Tag는 계산이 완료된 좌표를 다음 형식으로 출력합니다.
 
 ### 정지 및 이동 측위 결과
 
-<table>
-  <tr>
-    <th width="50%">정지 상태 좌표 안정화</th>
-    <th width="50%">이동 경로 실시간 추적</th>
-  </tr>
-  <tr>
-    <td><img width="960" height="540" alt="uwb_position_05s_08s" src="https://github.com/user-attachments/assets/1d5dda73-3e99-4ef9-9ecc-362ef29efe08" />
-    <td><img width="960" height="540" alt="uwb_position_14s_16s" src="https://github.com/user-attachments/assets/b1373047-7ce0-48d8-9d5b-ebd2ff2bb0ce" />
-  </tr>
-</table>
+#### 정지 상태 좌표 안정화
+
+<p align="center">
+  <img width="960" height="540" alt="uwb_position_05s_08s" src="https://github.com/user-attachments/assets/1d5dda73-3e99-4ef9-9ecc-362ef29efe08">
+</p>
+
+#### 이동 경로 실시간 추적
+
+<p align="center">
+  <img width="960" height="540" alt="uwb_position_14s_16s" src="https://github.com/user-attachments/assets/b1373047-7ce0-48d8-9d5b-ebd2ff2bb0ce">
+</p>
 
 정지 시험에서는 좌표가 일정 영역에 유지되는 것을 확인했고, 이동 시험에서는 Tag 이동에 따라 현재 위치와 이동 궤적이 연속적으로 갱신되는 것을 확인했습니다. 별도의 기준 측정 장비를 사용한 절대 위치 정확도 평가는 포함하지 않았습니다.
 
