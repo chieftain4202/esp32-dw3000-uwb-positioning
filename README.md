@@ -145,7 +145,8 @@ $$
 Anchor는 수신한 Poll 수와 정상 Response 수, Delayed TX 실패 횟수 및 잘못된 Frame 수를 주기적으로 출력합니다. Tag는 한 Round에서 일부 응답이 누락되면 좌표를 계산하지 않고 Anchor 수신 상태와 오류 원인을 진단 로그로 남깁니다.
 
 <p align="center">
-  <img width="680" alt="Anchor Poll 및 Response 통신 로그" src="https://github.com/user-attachments/assets/15c203ba-d2c6-41d7-b058-eebdf9446668">
+  <img width="865" height="399" alt="Anchor Log" src="https://github.com/user-attachments/assets/3400923e-7916-4ce7-bc0d-b086c3aef015" />
+
 </p>
 <p align="center"><sub>Anchor의 Poll 수신, Response 송신 및 Delayed TX 상태 확인</sub></p>
 
@@ -155,7 +156,8 @@ SEQ=...,TIME=...,DIST=...,RXERR=...,TXFAIL=...
 ```
 
 <p align="center">
-  <img width="820" alt="불완전 Ranging Round 진단 로그" src="https://github.com/user-attachments/assets/34e8dc5e-a6b1-42ba-98e7-4db33a8a3d2b">
+  <img width="807" height="331" alt="Tag_disconnect2Anchor_log" src="https://github.com/user-attachments/assets/5a82d91d-f1be-42d8-9002-6d78a3b1d869" />
+
 </p>
 <p align="center"><sub>Anchor 응답 누락과 Frame 오류 원인을 항목별 Counter로 분리</sub></p>
 
