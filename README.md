@@ -1,13 +1,26 @@
-# ESP32-DW3000 4-Anchor UWB Positioning
+<p align="center">
+  <img width="160" alt="ESP32 DW3000 UWB Board" src="https://github.com/user-attachments/assets/ebfb1df1-e6cc-487f-9297-0be2974176e3">
+</p>
+
+<h1 align="center">ESP32-DW3000 4-Anchor UWB Positioning</h1>
+
+<p align="center">
+  <strong>SS-TWR 거리 측정과 Robust WLS를 적용한 실시간 2차원 UWB 측위 시스템</strong>
+</p>
+
+<p align="center">
+  <img height="46" alt="PlatformIO" src="https://github.com/user-attachments/assets/df1fb807-44d4-4362-bfb1-a6ed1568186f">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img height="46" alt="C++" src="https://github.com/user-attachments/assets/cd2536e1-a553-436d-8a82-27c43ac2b8e6">
+</p>
+
+<p align="center">
+  <sub>ESP32 · DW3000 · SS-TWR · Robust WLS · Web Serial</sub>
+</p>
+
+---
 
 ESP32-DW3000 보드 5대로 구성한 실내 2차원 UWB 위치 측위 프로젝트입니다. 1대의 Tag가 4대의 Anchor와 SS-TWR 통신을 수행하고, 측정 거리의 이상값 제거와 Robust WLS 연산을 거쳐 최종 `(x, y)` 좌표를 출력합니다. 출력 좌표는 Web Serial 기반 시각화 화면에서 실시간 궤적으로 확인할 수 있습니다.
-
-##추가내용
-dw3000이미지<img width="447" height="447" alt="image" src="https://github.com/user-attachments/assets/ebfb1df1-e6cc-487f-9297-0be2974176e3" />
-플렛폼io로고 <img width="738" height="414" alt="image" src="https://github.com/user-attachments/assets/df1fb807-44d4-4362-bfb1-a6ed1568186f" />
-C++로고 <img width="306" height="344" alt="image" src="https://github.com/user-attachments/assets/cd2536e1-a553-436d-8a82-27c43ac2b8e6" />
-
-
 
 ## 바로가기
 
@@ -36,7 +49,7 @@ C++로고 <img width="306" height="344" alt="image" src="https://github.com/user
 Tag가 한 번의 Poll을 송신하면 4개의 Anchor가 ID별 응답 Slot을 사용해 순서대로 Response를 반환합니다. Tag는 한 Round에서 네 응답이 모두 검증된 경우에만 거리와 좌표를 계산합니다.
 
 <p align="center">
-  <img width="900" alt="4-Anchor UWB 시스템 구성도" src="https://github.com/user-attachments/assets/b8b984d4-11d2-4213-adff-4322fedc5d1e">
+  <img width="900" alt="4-Anchor UWB 시스템 구성도" src="https://github.com/user-attachments/assets/e2dde0e9-650f-4869-a188-f0095352dd39">
 </p>
 <p align="center"><sub>Tag 1대와 Anchor 4대로 구성한 2차원 UWB 측위 시스템</sub></p>
 
