@@ -253,4 +253,3 @@ Tag의 Serial Monitor를 종료한 뒤 **Connect**를 눌러 Tag의 USB Serial P
     └── diagrams/
 ```
 
-Draw.io 편집 원본은 [`docs/diagrams`](./docs/diagrams)에서 확인할 수 있습니다. 프로젝트에 포함된 DW3000 Driver의 라이선스와 저작권 표시는 원본 내용을 따릅니다.
