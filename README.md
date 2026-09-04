@@ -178,7 +178,8 @@ Tag는 계산이 완료된 좌표를 다음 형식으로 출력합니다.
 ### Serial 좌표 출력
 
 <p align="center">
-  <img width="420" height="746" alt="Serial 좌표 출력 로그" src="https://github.com/user-attachments/assets/79ecfcfe-ef14-4c3d-b60e-c65bfaebf104">
+  <img width="840" height="490" alt="dw3000_tag_terminal_coordinates" src="https://github.com/user-attachments/assets/252bae21-5c90-4fe1-b356-675ccbab6419" />
+
 </p>
 <p align="center"><sub>Tag에서 출력한 실시간 x, y 좌표 데이터</sub></p>
 
@@ -190,8 +191,8 @@ Tag는 계산이 완료된 좌표를 다음 형식으로 출력합니다.
     <th width="50%">이동 경로 실시간 추적</th>
   </tr>
   <tr>
-    <td><img width="560" height="564" alt="정지 상태 좌표 안정화" src="https://github.com/user-attachments/assets/deae322b-254b-4144-93f6-9870ccc23031"></td>
-    <td><img width="560" height="526" alt="이동 경로 실시간 추적" src="https://github.com/user-attachments/assets/32f6c16f-3e0d-4fef-b880-551e786b2c72"></td>
+    <td><img width="960" height="540" alt="uwb_position_05s_08s" src="https://github.com/user-attachments/assets/1d5dda73-3e99-4ef9-9ecc-362ef29efe08" />
+    <td><img width="960" height="540" alt="uwb_position_14s_16s" src="https://github.com/user-attachments/assets/b1373047-7ce0-48d8-9d5b-ebd2ff2bb0ce" />
   </tr>
 </table>
 
